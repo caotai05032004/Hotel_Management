@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@layer base {
+  button:not(:disabled) { background-color: revert; }
+}
+
+html, body, #root { height: 100%; }
