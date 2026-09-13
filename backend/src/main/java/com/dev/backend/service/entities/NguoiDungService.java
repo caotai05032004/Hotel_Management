@@ -25,10 +25,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, String> {
 
     // Phải tự viết constructor để gọi super(repository) — Lombok không làm được
     public NguoiDungService(NguoiDungRepository nguoiDungRepository,
-                            NguoiDungMapper nguoiDungMapper) {
+                            NguoiDungMapper nguoiDungMapper, PasswordEncoder passwordEncoder) {
         super(nguoiDungRepository);          // BaseServiceImpl lấy repo này để làm CRUD + filter
         this.nguoiDungRepository = nguoiDungRepository;
         this.nguoiDungMapper = nguoiDungMapper;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
