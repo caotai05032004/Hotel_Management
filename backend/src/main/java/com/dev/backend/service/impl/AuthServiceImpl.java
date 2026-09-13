@@ -14,9 +14,12 @@ import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.VaiTroRepository;
 import com.dev.backend.security.CustomUserDetails;
 import com.dev.backend.security.JwtTokenProvider;
+import com.dev.backend.security.TokenBlacklistService;
 import com.dev.backend.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;   // BCrypt, bean trong SecurityConfig
     private final NguoiDungMapper nguoiDungMapper;
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional
@@ -119,6 +123,21 @@ public class AuthServiceImpl implements AuthService {
         response.setCode(200);
         response.setMsg("Đăng nhập thành công");
         response.setData(loginResponse);
+        return response;
+    }
+
+    @Override
+    public BaseResponse<Void> logout(String token) {
+        BaseResponse<Void> response = new BaseResponse<>();
+        if (StringUtils.isEmpty(token) || !jwtTokenProvider.validateToken(token)) {
+            response.setCode(400);
+            response.setMsg("Token không hợp lệ");
+            return response;
+        }
+        tokenBlacklistService.add(token, jwtTokenProvider.getExpirationFromJWT(token));
+        SecurityContextHolder.clearContext();
+        response.setCode(200);
+        response.setMsg("Đăng xuất thành công");
         return response;
     }
 }
