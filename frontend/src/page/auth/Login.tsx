@@ -1,95 +1,115 @@
-import { LockOutlined, MailOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Form, Input, Typography, message } from 'antd';
 import { useState } from 'react';
-import { authService, getErrorMessage, getFieldErrors } from '../../services/authService';
-import type { LoginRequest } from '../../services/authService';
-import { Link } from 'react-router-dom';
-const { Title, Text } = Typography;
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/useAuth';
+import { getErrorMessage, getFieldErrors } from '../../services/http';
+import Button from '../../components/ui/Button';
+import { Input } from '../../components/ui/Field';
+import { Alert } from '../../components/ui/Feedback';
+import AuthShell from '../../components/layout/AuthShell';
+import type { LoginRequest } from '../../types';
+
+const STAFF = ['RECEPTIONIST', 'MANAGER', 'ADMIN'];
 
 export default function Login() {
-    const [form] = Form.useForm<LoginRequest>();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const expired = new URLSearchParams(location.search).get('expired') === '1';
 
-    const onFinish = async (values: LoginRequest) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const data = await authService.login(values);
-            message.success(`Xin chào ${data.user.fullName}`);
-            // TODO: điều hướng sau khi có router
-            // navigate('/');
-        } catch (err) {
-            const fieldErrors = getFieldErrors(err);
-            const entries = Object.entries(fieldErrors);
-            if (entries.length > 0) {
-                form.setFields(entries.map(([name, msg]) => ({ name, errors: [msg] })));
-            } else {
-                setError(getErrorMessage(err));
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+  const [values, setValues] = useState<LoginRequest>({ email: '', password: '' });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-    return (
-        <div style={wrapper}>
-            <Card style={{ width: '100%', maxWidth: 420 }}>
-                <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                    <Title level={3} style={{ marginBottom: 4 }}>Đăng nhập</Title>
-                    <Text type="secondary">Hệ thống quản lý khách sạn</Text>
-                </div>
+  const onChange = (key: keyof LoginRequest) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValues((v) => ({ ...v, [key]: e.target.value }));
+    setErrors((s) => ({ ...s, [key]: '' }));
+  };
 
-                {error && (
-                    <Alert
-                        type="error"
-                        showIcon
-                        message={error}
-                        closable
-                        onClose={() => setError(null)}
-                        style={{ marginBottom: 16 }}
-                    />
-                )}
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
 
-                <Form form={form} layout="vertical" onFinish={onFinish} disabled={loading}>
-                    <Form.Item
-                        name="email"
-                        label="Email"
-                        rules={[
-                            { required: true, message: 'Vui lòng nhập email' },
-                            { type: 'email', message: 'Email không đúng định dạng' },
-                        ]}
-                    >
-                        <Input prefix={<MailOutlined />} placeholder="email@example.com" size="large" />
-                    </Form.Item>
+    const next: Record<string, string> = {};
+    if (!values.email.trim()) next.email = 'Vui lòng nhập email';
+    if (!values.password) next.password = 'Vui lòng nhập mật khẩu';
+    if (Object.keys(next).length) {
+      setErrors(next);
+      return;
+    }
 
-                    <Form.Item
-                        name="password"
-                        label="Mật khẩu"
-                        rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
-                    >
-                        <Input.Password prefix={<LockOutlined />} placeholder="Mật khẩu" size="large" />
-                    </Form.Item>
+    setLoading(true);
+    try {
+      const user = await login(values);
+      const from = (location.state as { from?: string } | null)?.from;
+      const isStaff = STAFF.some((r) => user.roles.includes(r));
+      navigate(from ?? (isStaff ? '/admin' : '/'), { replace: true });
+    } catch (err) {
+      const fieldErrors = getFieldErrors(err);
+      if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
+      else setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                    <Button type="primary" htmlType="submit" size="large" block loading={loading}>
-                        Đăng nhập
-                    </Button>
-                </Form>
-
-                <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <Text type="secondary">Chưa có tài khoản? </Text>
-                    <Link to="/register">Đăng ký</Link>
-                </div>
-            </Card>
+  return (
+    <AuthShell
+      title="Đăng nhập"
+      subtitle="Chào mừng trở lại PhucNguyen Resort"
+      footer={
+        <>
+          Chưa có tài khoản?{' '}
+          <Link to="/register" className="font-bold text-gold-700 hover:underline">
+            Đăng ký miễn phí
+          </Link>
+        </>
+      }
+    >
+      {expired && (
+        <div className="mb-5">
+          <Alert tone="warning">Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.</Alert>
         </div>
-    );
-}
+      )}
+      {error && (
+        <div className="mb-5">
+          <Alert tone="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        </div>
+      )}
 
-const wrapper: React.CSSProperties = {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f0f2f5',
-    padding: 16,
-};
+      <form onSubmit={onSubmit} className="space-y-4" noValidate>
+        <Input
+          label="Email"
+          type="email"
+          autoComplete="email"
+          placeholder="email@example.com"
+          value={values.email}
+          onChange={onChange('email')}
+          error={errors.email}
+          required
+        />
+        <Input
+          label="Mật khẩu"
+          type="password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+          value={values.password}
+          onChange={onChange('password')}
+          error={errors.password}
+          required
+        />
+        <Button type="submit" size="lg" className="w-full" loading={loading}>
+          Đăng nhập
+        </Button>
+      </form>
+
+      <p className="mt-6 text-center text-xs text-ink-400">
+        <Link to="/" className="hover:text-navy-900">
+          ← Về trang chủ
+        </Link>
+      </p>
+    </AuthShell>
+  );
+}
