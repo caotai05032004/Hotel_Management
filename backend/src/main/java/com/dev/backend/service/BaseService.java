@@ -26,6 +26,22 @@ import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ *  HỢP ĐỒNG CRUD + FILTER DÙNG CHUNG CHO MỌI ENTITY
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * HangPhongService, PhongService cùng extends interface này, còn
+ * HangPhongServiceImpl / PhongServiceImpl / NguoiDungService thì extends
+ * lớp hiện thực com.dev.backend.service.impl.BaseServiceImpl.
+ *
+ * ⚠ CẢNH BÁO CODE TRÙNG:
+ *   Bên dưới interface này còn một class lồng tên BaseServiceImpl — nó là bản
+ *   SAO CHÉP y hệt của com.dev.backend.service.impl.BaseServiceImpl và
+ *   KHÔNG ĐƯỢC DÙNG Ở ĐÂU CẢ (các service đều import bản trong package impl).
+ *   Nên xoá class lồng này đi để tránh sửa nhầm file, chỉ giữ lại phần khai báo
+ *   interface phía trên.
+ */
 public interface BaseService<T, ID> {
 
     T create(T entity);

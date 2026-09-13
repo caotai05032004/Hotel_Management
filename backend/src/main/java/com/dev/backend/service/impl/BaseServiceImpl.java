@@ -27,6 +27,54 @@ import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ *  BƯỚC 6 — "ĐỘNG CƠ" CRUD + BỘ LỌC ĐỘNG DÙNG CHUNG
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Lớp cha trừu tượng cho MỌI service thao tác trên một entity
+ * (HangPhongServiceImpl, PhongServiceImpl, NguoiDungService đều kế thừa).
+ * Nhờ nó ta không phải viết lại findById / save / delete / phân trang cho từng bảng.
+ *
+ * ─── Phần quan trọng nhất: cơ chế FILTER ĐỘNG ─────────────────────────────
+ *
+ * Frontend gửi lên một BaseFilterRequest dạng JSON:
+ *
+ *     { "filters": [ {"fieldName":"isActive","operation":"EQUALS","value":true,
+ *                     "logicType":"AND"},
+ *                    {"fieldName":"name","operation":"LIKE","value":"Deluxe"} ],
+ *       "sorts":   [ {"fieldName":"basePrice","direction":"ASC"} ],
+ *       "page": 0, "size": 9 }
+ *
+ * filter() biến JSON đó thành câu SQL thật qua 4 chặng:
+ *
+ *   1. createSpecification(filters)
+ *        · validateFieldName()  — CHẶN SQL INJECTION: chỉ chấp nhận tên field
+ *          thực sự tồn tại trong entity và có annotation JPA (@Column, @JoinColumn,
+ *          @ManyToOne…). Gửi "name; DROP TABLE" sẽ bị ném InvalidFieldException.
+ *        · getFieldPath()       — hỗ trợ field lồng nhau "hangPhong.code"
+ *        · createPredicate()    — đổi mỗi FilterOperation thành một Predicate
+ *          của Criteria API (EQUALS → cb.equal, LIKE → cb.like(lower(...)), …)
+ *        · gom các Predicate: nhóm AND nối bằng cb.and(), nhóm OR nối bằng cb.or(),
+ *          rồi AND hai nhóm lại với nhau.
+ *
+ *   2. createPageable(sorts, page, size)  → PageRequest (ORDER BY + LIMIT/OFFSET)
+ *
+ *   3. specificationExecutor.findAll(spec, pageable)
+ *        → Hibernate dịch Specification thành SQL thật, ví dụ:
+ *            SELECT * FROM hang_phong
+ *             WHERE is_active = ? AND LOWER(name) LIKE ?
+ *             ORDER BY base_price ASC LIMIT 9 OFFSET 0;
+ *            SELECT COUNT(*) FROM hang_phong WHERE ...;      ← để tính total
+ *
+ *   4. Trả Page<T> — service con map sang DTO rồi bọc BaseResponsePaging.
+ *
+ * ⚠ LƯU Ý: dự án đang có HAI bản BaseServiceImpl giống hệt nhau —
+ *   bản này (com.dev.backend.service.impl.BaseServiceImpl) là bản ĐANG ĐƯỢC DÙNG,
+ *   bản còn lại là class lồng bên trong interface BaseService (code chết, nên xoá).
+ *
+ * @Transactional ở cấp class → mọi method public đều chạy trong transaction.
+ */
 @Getter
 @Service
 @Transactional
@@ -37,6 +85,12 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
     private final String statusFieldName;
     private Class<T> entityClass;
 
+    /**
+     * Service con gọi super(repository) trong constructor của nó.
+     * Ở đây ta ép kiểu repository sang JpaSpecificationExecutor để dùng được filter —
+     * nếu repository quên extends JpaSpecificationExecutor thì ứng dụng CHẾT NGAY
+     * lúc khởi động (fail fast) thay vì lỗi mơ hồ khi người dùng bấm lọc.
+     */
     public BaseServiceImpl(JpaRepository<T, ID> repository, String statusFieldName) {
         this.repository = repository;
         this.statusFieldName = statusFieldName;
@@ -55,6 +109,12 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
 
     protected abstract EntityManager getEntityManager();
 
+    /**
+     * Dùng reflection lấy ra class thật của T (HangPhong, Phong, NguoiDung…).
+     * Java xoá kiểu generic lúc biên dịch (type erasure) nên phải đọc ngược từ
+     * khai báo `extends BaseServiceImpl<HangPhong, String>` của lớp con.
+     * getEntityClass() phục vụ validateFieldName() khi kiểm tra tên field hợp lệ.
+     */
     @SuppressWarnings("unchecked")
     private Class<T> getEntityClassFromGeneric() {
         try {
@@ -190,6 +250,11 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         return repository.count();
     }
 
+    /**
+     * LÁ CHẮN SQL INJECTION (phần 1): liệt kê mọi tên field HỢP LỆ của entity.
+     * Duyệt ngược cả cây kế thừa để lấy cả field của BaseEntity (ví dụ `id`).
+     * Chỉ field có annotation JPA mới được coi là hợp lệ.
+     */
     protected Set<String> getValidColumnFields() {
         Set<String> validFields = new HashSet<>();
         Class<?> currentClass = getEntityClass();
@@ -225,6 +290,12 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         return validFields;
     }
 
+    /**
+     * LÁ CHẮN SQL INJECTION (phần 2): mọi fieldName do client gửi lên đều phải
+     * đi qua hàm này trước khi được ghép vào câu truy vấn.
+     * Tên không nằm trong danh sách hợp lệ → ném InvalidFieldException
+     * → GlobalExceptionHandler trả 500 kèm thông báo rõ ràng cho lập trình viên.
+     */
     protected void validateFieldName(String fieldName) {
         Set<String> validFields = getValidColumnFields();
 
@@ -244,6 +315,10 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
      * Tạo Specification từ danh sách FilterCriteria với hỗ trợ AND/OR
      */
     protected Specification<T> createSpecification(List<FilterCriteria> filters) {
+        // Specification là một lambda được Hibernate gọi lúc dựng câu SQL:
+        //   root            = bảng gốc (FROM hang_phong)
+        //   query           = toàn bộ CriteriaQuery
+        //   criteriaBuilder = "nhà máy" tạo các điều kiện (equal, like, greaterThan...)
         return (root, query, criteriaBuilder) -> {
             if (filters == null || filters.isEmpty()) {
                 System.out.println("❌ Filters is null or empty");
@@ -298,6 +373,11 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         };
     }
 
+    /**
+     * Đổi chuỗi tên field thành đường dẫn Criteria API.
+     * "name"            → root.get("name")
+     * "hangPhong.code"  → root.get("hangPhong").get("code")   (tự động JOIN)
+     */
     protected Path<?> getFieldPath(Root<T> root, String fieldName) {
         String[] parts = fieldName.split("\\.");
         Path<?> path = root.get(parts[0]);
@@ -309,6 +389,16 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         return path;
     }
 
+    /**
+     * Dịch một FilterCriteria thành một Predicate (một mệnh đề trong WHERE).
+     *
+     *   EQUALS                → col = ?
+     *   LESS_THAN / GREATER…  → col < ?   (chỉ áp dụng cho kiểu Comparable: số, ngày)
+     *   LIKE / ILIKE          → LOWER(col) LIKE '%giá trị%'   (luôn không phân biệt hoa thường)
+     *   IN / NOT_IN           → col IN (...)
+     *
+     * value == null → trả null → filter đó bị bỏ qua, không sinh mệnh đề rỗng.
+     */
     @SuppressWarnings({"rawtypes", "unchecked"})
     protected Predicate createPredicate(CriteriaBuilder cb, Path<?> path, FilterCriteria filter) {
         Object value = filter.getValue();
@@ -372,6 +462,12 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
     }
 
 
+    /**
+     * Dựng đối tượng phân trang + sắp xếp.
+     * Mặc định: page = 0 (trang đầu, đánh số từ 0 giống Spring Data), size = 20.
+     * Tên field sắp xếp cũng phải qua validateFieldName() — ORDER BY cũng là chỗ
+     * có thể bị SQL injection nếu nối chuỗi tuỳ tiện.
+     */
     protected Pageable createPageable(List<SortCriteria> sorts, Integer page, Integer size) {
         for (SortCriteria sort : sorts) {
             validateFieldName(sort.getFieldName());
@@ -393,6 +489,10 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         return PageRequest.of(page != null ? page : 0, size != null ? size : 20, sortObj);
     }
 
+    /**
+     * ĐIỂM VÀO CỦA BỘ LỌC — mọi endpoint /filter cuối cùng đều gọi hàm này.
+     * Trả Page<T> chứa: nội dung trang, số trang, cỡ trang, tổng số bản ghi.
+     */
     @Override
     @Transactional(readOnly = true)
     public Page<T> filter(BaseFilterRequest request) {

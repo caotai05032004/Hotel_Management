@@ -22,6 +22,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ *  BƯỚC 5 — NGHIỆP VỤ HẠNG PHÒNG (danh mục loại phòng)
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Vị trí trong luồng:
+ *   HangPhongController  →  [class này]  →  Repository  →  Hibernate  →  MySQL
+ *                                        ←  Entity      ←
+ *        MapStruct Mapper: Entity → HangPhongResponse  →  BaseResponse  →  JSON
+ *
+ * Quy ước chung của các service trong dự án:
+ *   - Không ném exception cho lỗi nghiệp vụ thường gặp (không tìm thấy, trùng mã…)
+ *     mà set code 400/404 vào BaseResponse, HTTP status vẫn 200.
+ *     → Frontend phải đọc body.code (hàm unwrap() trong src/services/http.ts).
+ *   - Chỉ ném exception cho lỗi thật sự bất thường → GlobalExceptionHandler xử lý.
+ *
+ * Kế thừa BaseServiceImpl để dùng lại getOne(), filter() (bộ lọc động dùng chung).
+ */
 @Service
 public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         implements HangPhongService {
@@ -31,9 +49,17 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
     private final PhongRepository phongRepository;
     private final HangPhongMapper hangPhongMapper;
 
+    /**
+     * @PersistenceContext tiêm EntityManager do Spring quản lý (theo transaction hiện tại).
+     * BaseServiceImpl cần nó để dựng CriteriaQuery khi filter.
+     */
     @PersistenceContext
     private EntityManager entityManager;
 
+    /**
+     * Không dùng được @RequiredArgsConstructor vì phải gọi super(hangPhongRepository)
+     * để lớp cha biết thao tác trên repository nào.
+     */
     public HangPhongServiceImpl(HangPhongRepository hangPhongRepository,
                                 AnhHangPhongRepository anhHangPhongRepository,
                                 PhongRepository phongRepository,
@@ -50,7 +76,22 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return entityManager;
     }
 
-    // Hàm phụ: Entity -> Response, kèm danh sách ảnh và số phòng
+    /**
+     * ĐIỂM CHUYỂN ĐỔI Entity → DTO (BƯỚC 7 của luồng).
+     *
+     * Vì sao phải có hàm riêng thay vì chỉ gọi mapper?
+     *   HangPhongMapper.toResponse() cố tình @Mapping(ignore) hai trường
+     *   `images` và `soPhong` — chúng không lấy được trực tiếp từ entity:
+     *     - images  : quan hệ LAZY, truy cập ngoài transaction sẽ ném
+     *                 LazyInitializationException → phải query riêng, có ORDER BY sortOrder.
+     *     - soPhong : là kết quả COUNT ở bảng khác (phong), không phải cột của hang_phong.
+     *
+     * ⚠ Hiệu năng: gọi hàm này trong vòng lặp của filterHangPhong() gây N+1 query
+     *   (mỗi hạng phòng thêm 2 câu SELECT). Với danh mục vài chục bản ghi thì chấp nhận được;
+     *   nếu dữ liệu lớn nên gom bằng một câu JOIN + GROUP BY.
+     *
+     * Hàm phụ: Entity -> Response, kèm danh sách ảnh và số phòng
+     */
     private HangPhongResponse buildResponse(HangPhong hangPhong) {
         HangPhongResponse res = hangPhongMapper.toResponse(hangPhong);
         res.setImages(hangPhongMapper.toAnhResponseList(
@@ -59,6 +100,19 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return res;
     }
 
+    /**
+     * TẠO HẠNG PHÒNG — POST /api/hang-phong  (MANAGER | ADMIN)
+     *
+     * Tới được đây nghĩa là request đã vượt qua:
+     *   [2] JWT hợp lệ  →  [4] @PreAuthorize cho phép  →  @Valid không phát hiện lỗi.
+     *
+     * Bên trong:
+     *   1. Chuẩn hoá mã về CHỮ HOA (DLX, STE…) cho đồng nhất
+     *   2. Kiểm tra trùng mã       → SELECT EXISTS(... WHERE code = ?)
+     *   3. Map DTO → Entity, gán mặc định isActive/maxAdults/maxChildren
+     *   4. save()                  → INSERT INTO hang_phong (...)
+     *   5. buildResponse()         → gắn thêm ảnh + số phòng rồi trả về
+     */
     @Override
     @Transactional
     public BaseResponse<HangPhongResponse> createHangPhong(HangPhongRequest request) {
@@ -71,9 +125,10 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
             return response;
         }
 
+        // MapStruct bỏ qua id/isActive/createdAt/images/rooms (xem @Mapping(ignore) trong mapper)
         HangPhong hangPhong = hangPhongMapper.toEntity(request);
         hangPhong.setCode(code);
-        hangPhong.setIsActive(true);
+        hangPhong.setIsActive(true);          // hạng phòng mới mặc định đang kinh doanh
         if (hangPhong.getMaxAdults() == null) hangPhong.setMaxAdults(2);
         if (hangPhong.getMaxChildren() == null) hangPhong.setMaxChildren(1);
 
@@ -85,6 +140,16 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return response;
     }
 
+    /**
+     * CẬP NHẬT — PUT /api/hang-phong/{id}  (MANAGER | ADMIN)
+     *
+     * Điểm cần chú ý: dùng mapper.updateEntity(request, entityCũ) chứ KHÔNG
+     * tạo entity mới từ request rồi save đè. Nếu tạo mới thì id/createdAt/isActive
+     * và danh sách ảnh sẽ bị ghi đè thành null.
+     *
+     * Kiểm tra trùng mã dùng existsByCodeAndIdNot(code, id) — loại chính nó ra,
+     * nếu không thì sửa mà giữ nguyên mã cũ cũng bị báo "mã đã tồn tại".
+     */
     @Override
     @Transactional
     public BaseResponse<HangPhongResponse> updateHangPhong(String id, HangPhongRequest request) {
@@ -115,6 +180,12 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return response;
     }
 
+    /**
+     * CHI TIẾT — GET /api/hang-phong/{id}  (công khai, khách vãng lai xem được)
+     *
+     * readOnly = true: Hibernate bỏ qua dirty checking và flush → nhanh hơn,
+     * đồng thời báo cho driver JDBC biết đây là transaction chỉ đọc.
+     */
     @Override
     @Transactional(readOnly = true)
     public BaseResponse<HangPhongResponse> getDetail(String id) {
@@ -133,12 +204,30 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return response;
     }
 
+    /**
+     * LỌC + PHÂN TRANG — POST /api/hang-phong/filter
+     *
+     * Đây là API frontend dùng nhiều nhất (homepage, /rooms, /admin/hang-phong).
+     *
+     * Chuỗi xử lý:
+     *   1. filter(request)  — hàm kế thừa từ BaseServiceImpl:
+     *        · createSpecification(filters) → dựng mệnh đề WHERE động bằng Criteria API
+     *        · createPageable(sorts,page,size) → ORDER BY + LIMIT/OFFSET
+     *        · specificationExecutor.findAll(spec, pageable)
+     *          → Hibernate sinh 2 câu: SELECT dữ liệu trang hiện tại + SELECT COUNT(*)
+     *   2. Duyệt từng entity, buildResponse() để gắn ảnh và số phòng
+     *   3. Đóng gói vào BaseResponsePaging{data, page, size, total}
+     *      → FE dùng `total` để vẽ component Pagination.
+     */
     @Override
     @Transactional(readOnly = true)
     public BaseResponse<BaseResponsePaging<HangPhongResponse>> filterHangPhong(BaseFilterRequest request) {
         BaseResponse<BaseResponsePaging<HangPhongResponse>> response = new BaseResponse<>();
 
+        // Page<T> của Spring Data đã chứa sẵn: nội dung trang, số trang, cỡ trang, tổng bản ghi
         Page<HangPhong> page = filter(request);            // hàm có sẵn của BaseServiceImpl
+
+        // Entity → DTO cho từng phần tử (đây là chỗ phát sinh N+1 query đã nói ở buildResponse)
         List<HangPhongResponse> data = page.getContent().stream()
                 .map(this::buildResponse)
                 .toList();
@@ -156,6 +245,13 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return response;
     }
 
+    /**
+     * BẬT / TẮT KINH DOANH — PATCH /api/hang-phong/{id}/active?active=true|false
+     *
+     * "Xoá mềm": không DELETE khỏi DB vì hạng phòng đã được phong, dat_phong,
+     * gia_phong_theo_ngay tham chiếu. Tắt rồi thì khách không thấy trên catalog
+     * (FE lọc isActive = true) nhưng dữ liệu lịch sử vẫn nguyên vẹn.
+     */
     @Override
     @Transactional
     public BaseResponse<HangPhongResponse> setActive(String id, boolean active) {
@@ -177,6 +273,13 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return response;
     }
 
+    /**
+     * THÊM ẢNH — POST /api/hang-phong/{id}/anh
+     *
+     * Lưu URL ảnh dạng chuỗi vào bảng anh_hang_phong, KHÔNG upload file nhị phân
+     * (muốn upload thật thì cần thêm @RequestPart MultipartFile + nơi lưu trữ).
+     * anh.setHangPhong(hangPhong) chính là thao tác gán khoá ngoại hang_phong_id.
+     */
     @Override
     @Transactional
     public BaseResponse<AnhHangPhongResponse> addImage(String hangPhongId, AnhHangPhongRequest request) {
@@ -200,6 +303,13 @@ public class HangPhongServiceImpl extends BaseServiceImpl<HangPhong, String>
         return response;
     }
 
+    /**
+     * XOÁ ẢNH — DELETE /api/hang-phong/{id}/anh/{anhId}
+     *
+     * Kiểm tra ảnh có thuộc đúng hạng phòng trên URL không — nếu bỏ bước này,
+     * người dùng có thể đoán anhId để xoá ảnh của hạng phòng khác
+     * (lỗi bảo mật IDOR — Insecure Direct Object Reference).
+     */
     @Override
     @Transactional
     public BaseResponse<Void> removeImage(String hangPhongId, String anhId) {

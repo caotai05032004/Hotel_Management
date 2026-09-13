@@ -24,6 +24,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ *  BƯỚC 5 — NGHIỆP VỤ PHÒNG VẬT LÝ
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Mỗi bản ghi = một phòng có thật trong khách sạn (101, 205, V01…), thuộc về
+ * đúng một hạng phòng và mang 3 trạng thái độc lập:
+ *
+ *   occupancyStatus     VACANT ⇄ OCCUPIED            ← chỉ đổi qua check-in/check-out
+ *   housekeepingStatus  CLEAN / DIRTY / INSPECTED    ← buồng phòng cập nhật
+ *   serviceStatus       IN_SERVICE / OUT_OF_ORDER / OUT_OF_SERVICE  ← kỹ thuật
+ *
+ * Các quy tắc nghiệp vụ được BẢO VỆ Ở TẦNG NÀY (frontend cũng chặn, nhưng
+ * frontend có thể bị bỏ qua nên server vẫn phải kiểm tra lại):
+ *   · Số phòng là duy nhất trong toàn khách sạn.
+ *   · Không đổi hạng phòng khi phòng đang có khách.
+ *   · Không đưa phòng ra khỏi hoạt động khi đang có khách.
+ *   · Không xoá phòng đã từng có lịch sử lưu trú.
+ */
 @Service
 public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements PhongService {
 
@@ -32,9 +51,11 @@ public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements 
     private final ChiTietDatPhongRepository chiTietDatPhongRepository;
     private final PhongMapper phongMapper;
 
+    // Spring tiêm EntityManager của transaction hiện tại; BaseServiceImpl dùng để filter
     @PersistenceContext
     private EntityManager entityManager;
 
+    // Phải viết constructor thủ công để gọi super(phongRepository)
     public PhongServiceImpl(PhongRepository phongRepository,
                             HangPhongRepository hangPhongRepository,
                             ChiTietDatPhongRepository chiTietDatPhongRepository,
@@ -51,6 +72,17 @@ public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements 
         return entityManager;
     }
 
+    /**
+     * TẠO PHÒNG — POST /api/phong  (MANAGER | ADMIN)
+     *
+     * Trình tự:
+     *   1. Chuẩn hoá và kiểm tra trùng số phòng  → SELECT EXISTS(... WHERE room_number = ?)
+     *   2. Kiểm tra hangPhongId có thật          → SELECT * FROM hang_phong WHERE id = ?
+     *      (không có bước này thì Hibernate sẽ ném lỗi khoá ngoại khó hiểu lúc INSERT)
+     *   3. Map DTO → Entity, gắn quan hệ hangPhong (chính là khoá ngoại hang_phong_id)
+     *   4. Đặt 3 trạng thái mặc định cho phòng mới
+     *   5. save() → INSERT INTO phong (...)
+     */
     @Override
     @Transactional
     public BaseResponse<PhongResponse> createPhong(PhongRequest request) {
@@ -86,6 +118,20 @@ public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements 
         return response;
     }
 
+    /**
+     * SỬA PHÒNG — PUT /api/phong/{id}  (MANAGER | ADMIN)
+     *
+     * Bốn lớp kiểm tra trước khi ghi:
+     *   1. Phòng có tồn tại không                         → 404
+     *   2. Số phòng mới có đụng phòng khác không          → 400
+     *      (existsByRoomNumberAndIdNot loại chính nó ra, nếu không thì giữ nguyên
+     *       số phòng cũ cũng bị báo trùng)
+     *   3. Đang có khách mà đòi đổi hạng phòng            → 400
+     *   4. Hạng phòng mới có tồn tại không                → 404
+     *
+     * Gán từng trường thay vì dùng mapper để giữ nguyên 3 trạng thái hiện tại
+     * của phòng (mapper toEntity() đã ignore các trạng thái này).
+     */
     @Override
     @Transactional
     public BaseResponse<PhongResponse> updatePhong(String id, PhongRequest request) {
@@ -132,6 +178,7 @@ public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements 
         return response;
     }
 
+    /** CHI TIẾT — GET /api/phong/{id}. Chỉ đọc nên dùng readOnly để khỏi dirty checking. */
     @Override
     @Transactional(readOnly = true)
     public BaseResponse<PhongResponse> getDetail(String id) {
@@ -150,6 +197,19 @@ public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements 
         return response;
     }
 
+    /**
+     * LỌC + PHÂN TRANG — POST /api/phong/filter
+     *
+     *   filter(request) kế thừa từ BaseServiceImpl → Specification (WHERE động)
+     *     + Pageable (ORDER BY, LIMIT/OFFSET) → 2 câu SQL: lấy dữ liệu + đếm tổng.
+     *
+     * Khác filterHangPhong ở chỗ KHÔNG bị N+1: PhongMapper lấy hangPhongCode/Name
+     * bằng @Mapping(source = "hangPhong.code") ngay trong lúc map.
+     * ⚠ Nhưng hangPhong là quan hệ LAZY, nên khi mapper chạm vào sẽ phát sinh
+     *   một SELECT phụ cho mỗi phòng. Muốn tối ưu thì dùng @EntityGraph hoặc JOIN FETCH.
+     *
+     * Trang /admin/phong và Dashboard đều gọi endpoint này.
+     */
     @Override
     @Transactional(readOnly = true)
     public BaseResponse<BaseResponsePaging<PhongResponse>> filterPhong(BaseFilterRequest request) {
@@ -173,6 +233,16 @@ public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements 
         return response;
     }
 
+    /**
+     * ĐỔI TRẠNG THÁI — PATCH /api/phong/{id}/trang-thai  (lễ tân dùng hằng ngày)
+     *
+     * Ngữ nghĩa PATCH: trường nào gửi null thì GIỮ NGUYÊN giá trị cũ — thể hiện
+     * bằng ba lệnh `if (request.getXxx() != null)` bên dưới.
+     *
+     * occupancyStatus cố tình KHÔNG có trong PhongTrangThaiRequest: trạng thái
+     * có khách hay không phải do nghiệp vụ check-in/check-out quyết định,
+     * không để nhân viên sửa tay.
+     */
     @Override
     @Transactional
     public BaseResponse<PhongResponse> updateTrangThai(String id, PhongTrangThaiRequest request) {
@@ -205,6 +275,13 @@ public class PhongServiceImpl extends BaseServiceImpl<Phong, String> implements 
         return response;
     }
 
+    /**
+     * XOÁ PHÒNG — DELETE /api/phong/{id}  (MANAGER | ADMIN)
+     *
+     * Chỉ cho xoá CỨNG khi bảng chi_tiet_dat_phong chưa từng tham chiếu tới phòng
+     * (existsByPhong_Id = false). Phòng đã có lịch sử lưu trú mà xoá thì hoá đơn
+     * và báo cáo cũ sẽ mất dữ liệu tham chiếu → hướng dẫn chuyển OUT_OF_SERVICE.
+     */
     @Override
     @Transactional
     public BaseResponse<Void> deletePhong(String id) {
