@@ -18,4 +18,6 @@ public interface AuthService {
     BaseResponse<AuthResponse> register(RegisterRequest request);
 
     BaseResponse<LoginResponse> login(LoginRequest request);
+
+    BaseResponse<Void> logout(String token);
 }

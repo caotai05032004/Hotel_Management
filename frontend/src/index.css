@@ -1,7 +1,71 @@
 @import "tailwindcss";
 
-@layer base {
-  button:not(:disabled) { background-color: revert; }
+/* ------------------------------------------------------------------
+   Design tokens lấy từ template Figma (join-truce-32939589.figma.site)
+   navy  #0D1B2A / #1A1A2E   gold #C9A84C   cream #FAF7F2 / #F0EBE2
+------------------------------------------------------------------- */
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+
+  --color-navy-950: #07111d;
+  --color-navy-900: #0d1b2a;
+  --color-navy-800: #14263a;
+  --color-navy-700: #1c3349;
+
+  --color-ink-900: #1a1a2e;
+  --color-ink-800: #2c2c4a;
+  --color-ink-600: #4a4a6a;
+  --color-ink-400: #6b6b8a;
+
+  --color-gold-700: #8d7226;
+  --color-gold-600: #a8892f;
+  --color-gold-500: #c9a84c;
+  --color-gold-400: #d9bc68;
+  --color-gold-300: #e6d19a;
+
+  --color-cream-50: #faf7f2;
+  --color-cream-100: #f5f2ec;
+  --color-cream-200: #f0ebe2;
+  --color-cream-300: #e2dbcd;
+
+  --shadow-card: 0 10px 30px -12px rgb(13 27 42 / 0.18);
+  --shadow-soft: 0 2px 10px -3px rgb(13 27 42 / 0.12);
 }
 
-html, body, #root { height: 100%; }
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-cream-50 text-navy-900 font-sans antialiased;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* nhãn nhỏ chữ vàng in hoa giãn chữ — dùng ở mọi section của template */
+  .eyebrow {
+    @apply text-gold-600 text-xs font-bold tracking-[0.25em] uppercase;
+  }
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+}
+
+/* thanh cuộn mảnh cho bảng quản trị */
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: #cbd3dd;
+  border-radius: 9999px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fadeUp 0.5s ease-out both; }

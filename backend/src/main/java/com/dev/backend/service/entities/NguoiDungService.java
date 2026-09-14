@@ -1,6 +1,7 @@
 package com.dev.backend.service.entities;
 
 
+import com.dev.backend.dto.request.UpdateNguoiDungRequest;
 import com.dev.backend.dto.response.BaseResponse;
 import com.dev.backend.dto.response.NguoiDungResponse;
 import com.dev.backend.entity.NguoiDung;
@@ -9,6 +10,7 @@ import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.service.impl.BaseServiceImpl;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,16 +18,18 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, String> {
 
     private final NguoiDungRepository nguoiDungRepository;
     private final NguoiDungMapper nguoiDungMapper;
+    private final PasswordEncoder passwordEncoder;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     // Phải tự viết constructor để gọi super(repository) — Lombok không làm được
     public NguoiDungService(NguoiDungRepository nguoiDungRepository,
-                            NguoiDungMapper nguoiDungMapper) {
+                            NguoiDungMapper nguoiDungMapper, PasswordEncoder passwordEncoder) {
         super(nguoiDungRepository);          // BaseServiceImpl lấy repo này để làm CRUD + filter
         this.nguoiDungRepository = nguoiDungRepository;
         this.nguoiDungMapper = nguoiDungMapper;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -46,6 +50,26 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, String> {
 
         response.setCode(200);
         response.setMsg("Thành công");
+        response.setData(nguoiDungMapper.toResponse(nguoiDung));
+        return response;
+    }
+
+    public BaseResponse<NguoiDungResponse> update(UpdateNguoiDungRequest request) {
+        BaseResponse<NguoiDungResponse> response = new BaseResponse<>();
+        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(request.getEmail()).orElse(null);
+
+        if (nguoiDung == null) {
+            response.setCode(404);
+            response.setMsg("Không tìm thấy người dùng");
+            return response;
+        }
+        nguoiDung.setEmail(request.getEmail());
+        nguoiDung.setFullName(request.getFullName());
+        nguoiDung.setPhone(request.getPhone());
+        nguoiDung.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+
+        response.setCode(200);
+        response.setMsg("Cập nhập người dùng thành công");
         response.setData(nguoiDungMapper.toResponse(nguoiDung));
         return response;
     }

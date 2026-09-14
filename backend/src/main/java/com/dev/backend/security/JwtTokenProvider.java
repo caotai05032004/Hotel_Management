@@ -106,4 +106,8 @@ public class JwtTokenProvider {
         }
         return false;
     }
+
+    public Date getExpirationFromJWT(String token) {
+        return parseClaims(token).getExpiration();
+    }
 }

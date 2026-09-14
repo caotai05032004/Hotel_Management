@@ -24,6 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
@@ -48,7 +49,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
+            if (StringUtils.hasText(jwt)
+                    && jwtTokenProvider.validateToken(jwt)
+                    && !tokenBlacklistService.isBlacklisted(jwt)) {
                 String email = jwtTokenProvider.getEmailFromJWT(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
 
