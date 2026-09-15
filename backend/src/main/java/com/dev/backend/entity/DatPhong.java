@@ -33,6 +33,9 @@ public class DatPhong extends BaseEntity {
     @Column(name = "contact_phone", length = 20)
     private String contactPhone;
 
+    @Column(name = "id_number_raw", length = 50)
+    private String idNumberRaw;
+
     @Column(name = "check_in_date", nullable = false)
     private LocalDate checkInDate;
 

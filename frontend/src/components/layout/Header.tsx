@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import UserDropdownMenu from './UserDropdownMenu';
 import Logo from './Logo';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/useAuth';
 import { classNames } from '../../lib/format';
+import PATH from '../../configs/path';
 
 const NAV = [
-  { to: '/rooms', label: 'Phòng' },
+  { to: PATH.ROOMS, label: 'Phòng' },
   { to: '/#dining', label: 'Nhà hàng' },
   { to: '/#tours', label: 'Tour' },
-  { to: '/#about', label: 'Về chúng tôi' },
+  { to: PATH.ABOUT_ME, label: 'Về chúng tôi' },
 ];
 
 export default function Header() {
-  const { user, isAuthenticated, isStaff, logout } = useAuth();
+  const { isAuthenticated, isStaff, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -61,30 +63,7 @@ export default function Header() {
 
         <div className="hidden items-center gap-3 md:flex">
           {isAuthenticated ? (
-            <>
-              {isStaff && (
-                <Link
-                  to="/admin"
-                  className="text-sm font-semibold text-ink-600 transition hover:text-navy-900"
-                >
-                  Quản trị
-                </Link>
-              )}
-              <Link
-                to="/profile"
-                className="flex items-center gap-2 rounded-full border border-cream-300 bg-white py-1 pl-1 pr-4 transition hover:border-gold-400"
-              >
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-navy-900 text-xs font-bold text-gold-500">
-                  {(user?.fullName ?? '?').charAt(0).toUpperCase()}
-                </span>
-                <span className="max-w-28 truncate text-sm font-semibold text-navy-900">
-                  {user?.fullName}
-                </span>
-              </Link>
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                Đăng xuất
-              </Button>
-            </>
+            <UserDropdownMenu />
           ) : (
             <>
               <Link to="/login" className="text-sm font-bold text-navy-900 transition hover:text-gold-700">
@@ -129,8 +108,11 @@ export default function Header() {
                       Quản trị
                     </Link>
                   )}
-                  <Link to="/profile" onClick={() => setOpen(false)} className="px-2 py-2 text-sm font-semibold">
-                    Tài khoản của tôi
+                  <Link to={PATH.PROFILE} onClick={() => setOpen(false)} className="px-2 py-2 text-sm font-semibold">
+                    Thông tin cá nhân
+                  </Link>
+                  <Link to={PATH.MY_BOOKINGS} onClick={() => setOpen(false)} className="px-2 py-2 text-sm font-semibold text-emerald-800">
+                    Dịch vụ đã đặt
                   </Link>
                   <Button variant="outline" onClick={handleLogout}>
                     Đăng xuất

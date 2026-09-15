@@ -5,15 +5,21 @@ import { classNames } from '../../lib/format';
 
 const MENU = [
   { to: '/admin', end: true, label: 'Tổng quan', icon: '📊' },
+  { to: '/admin/dat-phong', label: 'Đặt phòng & Check-in', icon: '🛎️' },
+  { to: '/admin/yeu-cau-du-lieu', label: 'Yêu cầu Xóa Dữ liệu (ND356)', icon: '🛡️', adminOnly: true },
   { to: '/admin/hang-phong', label: 'Hạng phòng', icon: '🏷️' },
   { to: '/admin/phong', label: 'Phòng', icon: '🛏️' },
-  { to: '/admin/tai-khoan', label: 'Tài khoản', icon: '👤' },
+  { to: '/admin/tai-khoan', label: 'Tài khoản', icon: '👤', adminOnly: true },
 ];
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  const isAdmin = user?.roles?.some((r) => r === 'ADMIN' || r === 'ROLE_ADMIN');
+
+  const filteredMenu = MENU.filter((m) => !m.adminOnly || isAdmin);
 
   const handleLogout = async () => {
     await logout();
@@ -40,7 +46,7 @@ export default function AdminLayout() {
         </div>
 
         <nav className="mt-4 space-y-1 px-3">
-          {MENU.map((m) => (
+          {filteredMenu.map((m) => (
             <NavLink
               key={m.to}
               to={m.to}

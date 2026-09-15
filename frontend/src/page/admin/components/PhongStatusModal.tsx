@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import { Select, Textarea } from '../../../components/ui/Field';
-import { Alert } from '../../../components/ui/Feedback';
 import { phongService } from '../../../services/phongService';
 import { getErrorMessage } from '../../../services/http';
 import { HOUSEKEEPING_LABEL, SERVICE_LABEL } from '../../../components/ui/Badge';
@@ -24,7 +24,6 @@ export default function PhongStatusModal({ open, phong, onClose, onSaved }: Prop
   const [housekeeping, setHousekeeping] = useState<HousekeepingStatus>('CLEAN');
   const [service, setService] = useState<ServiceStatus>('IN_SERVICE');
   const [note, setNote] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -32,13 +31,11 @@ export default function PhongStatusModal({ open, phong, onClose, onSaved }: Prop
     setHousekeeping(phong.housekeepingStatus);
     setService(phong.serviceStatus);
     setNote(phong.note ?? '');
-    setError(null);
   }, [open, phong]);
 
   const submit = async () => {
     if (!phong) return;
     setSaving(true);
-    setError(null);
     try {
       await phongService.updateTrangThai(phong.id, {
         housekeepingStatus: housekeeping,
@@ -48,7 +45,7 @@ export default function PhongStatusModal({ open, phong, onClose, onSaved }: Prop
       onSaved(`Đã cập nhật trạng thái phòng ${phong.roomNumber}`);
       onClose();
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -72,14 +69,6 @@ export default function PhongStatusModal({ open, phong, onClose, onSaved }: Prop
         </>
       }
     >
-      {error && (
-        <div className="mb-4">
-          <Alert tone="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </div>
-      )}
-
       <div className="space-y-4">
         <Select
           label="Trạng thái vệ sinh"
@@ -94,7 +83,7 @@ export default function PhongStatusModal({ open, phong, onClose, onSaved }: Prop
         </Select>
 
         <Select
-          label="Trạng thái khai thác"
+          label="Trạng thái vận hành"
           value={service}
           onChange={(e) => setService(e.target.value as ServiceStatus)}
         >

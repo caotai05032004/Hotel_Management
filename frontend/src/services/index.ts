@@ -3,3 +3,5 @@ export { authService, clearSession, getStoredUser, getAccessToken } from './auth
 export { nguoiDungService } from './nguoiDungService';
 export { hangPhongService } from './hangPhongService';
 export { phongService } from './phongService';
+export { datPhongService } from './datPhongService';
+

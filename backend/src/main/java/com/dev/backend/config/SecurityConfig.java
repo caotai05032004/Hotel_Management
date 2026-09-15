@@ -130,6 +130,13 @@ public class SecurityConfig {
                 .toList());
 
         // Các HTTP method FE được dùng
+        if (allowedOrigins != null && allowedOrigins.contains("*")) {
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .toList());
+        }
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         // Cho phép mọi header (quan trọng nhất là Authorization và Content-Type)
@@ -185,6 +192,11 @@ public class SecurityConfig {
                         //     → rơi xuống 4.4 → bị 401.
                         //     Muốn khách xem được danh sách thì thêm dòng:
                         //       .requestMatchers(HttpMethod.POST, "/api/hang-phong/filter").permitAll()
+                        // Khach vang lai xem duoc catalog phong / tour / thuc don (ca GET va POST /filter)
+                        .requestMatchers(
+                                "/api/hang-phong/filter",
+                                "/api/tours/filter",
+                                "/api/mon-an/filter").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/hang-phong/**",
                                 "/api/tours/**",
@@ -193,6 +205,10 @@ public class SecurityConfig {
                         // 4.4 Tất cả URL còn lại: bắt buộc đã xác thực.
                         //     Nếu SecurityContext rỗng (không có token hợp lệ) → 401.
                         //     Việc kiểm tra VAI TRÒ chi tiết nằm ở @PreAuthorize trên Controller.
+                        // Khach vang lai (khong dang nhap) van dat phong va thanh toan coc duoc
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/dat-phong",
+                                "/api/dat-phong/*/thanh-toan-coc").permitAll()
                         .anyRequest().authenticated()
                 );
 

@@ -4,20 +4,18 @@ import { nguoiDungService } from '../services/nguoiDungService';
 import { getErrorMessage, getFieldErrors } from '../services/http';
 import Button from '../components/ui/Button';
 import { Input } from '../components/ui/Field';
-import { Alert, Loading } from '../components/ui/Feedback';
+import { Loading } from '../components/ui/Feedback';
 import Badge from '../components/ui/Badge';
-import { useToast } from '../components/ui/Toast';
+import { toast } from 'sonner';
 import { formatDateTime } from '../lib/format';
 import type { NguoiDungResponse } from '../types';
 
 export default function Profile() {
   const { user, setUser } = useAuth();
-  const toast = useToast();
 
   const [profile, setProfile] = useState<NguoiDungResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({ fullName: '', phone: '', password: '' });
@@ -37,7 +35,7 @@ export default function Profile() {
         setProfile(data);
         setForm({ fullName: data.fullName ?? '', phone: data.phone ?? '', password: '' });
       })
-      .catch((err) => alive && setError(getErrorMessage(err)))
+      .catch((err) => alive && toast.error(getErrorMessage(err)))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -47,7 +45,6 @@ export default function Profile() {
   /* POST /api/user/update — backend tìm người dùng theo email và mã hoá lại mật khẩu */
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setErrors({});
 
     const next: Record<string, string> = {};
@@ -77,7 +74,7 @@ export default function Profile() {
     } catch (err) {
       const fieldErrors = getFieldErrors(err);
       if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
-      else setError(getErrorMessage(err));
+      else toast.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -87,7 +84,6 @@ export default function Profile() {
 
   return (
     <div className="container-page py-12">
-      {toast.view}
 
       <h1 className="text-3xl font-black text-navy-900">Tài khoản của tôi</h1>
       <p className="mt-2 text-sm text-ink-400">Quản lý thông tin cá nhân và mật khẩu đăng nhập</p>
@@ -144,14 +140,6 @@ export default function Profile() {
             Endpoint <code className="rounded bg-cream-100 px-1.5 py-0.5 text-xs">POST /api/user/update</code>{' '}
             xác định người dùng theo email nên email không thể thay đổi ở đây.
           </p>
-
-          {error && (
-            <div className="mt-5">
-              <Alert tone="error" onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            </div>
-          )}
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
             <Input label="Email" value={profile?.email ?? user?.email ?? ''} disabled />

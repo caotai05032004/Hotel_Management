@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import { Input, Select, Textarea } from '../../../components/ui/Field';
-import { Alert } from '../../../components/ui/Feedback';
 import { phongService } from '../../../services/phongService';
 import { getErrorMessage, getFieldErrors } from '../../../services/http';
 import type { HangPhongResponse, PhongRequest, PhongResponse } from '../../../types';
@@ -20,13 +20,11 @@ const EMPTY = { hangPhongId: '', roomNumber: '', floorNo: '1', note: '' };
 export default function PhongFormModal({ open, editing, hangPhongOptions, onClose, onSaved }: Props) {
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setErrors({});
-    setError(null);
     setForm(
       editing
         ? {
@@ -41,7 +39,6 @@ export default function PhongFormModal({ open, editing, hangPhongOptions, onClos
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    setError(null);
 
     const next: Record<string, string> = {};
     if (!form.hangPhongId) next.hangPhongId = 'Hạng phòng không được để trống';
@@ -74,7 +71,7 @@ export default function PhongFormModal({ open, editing, hangPhongOptions, onClos
     } catch (err) {
       const fieldErrors = getFieldErrors(err);
       if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
-      else setError(getErrorMessage(err));
+      else toast.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -97,14 +94,6 @@ export default function PhongFormModal({ open, editing, hangPhongOptions, onClos
         </>
       }
     >
-      {error && (
-        <div className="mb-4">
-          <Alert tone="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </div>
-      )}
-
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
         <div className="sm:col-span-2">
           <Select

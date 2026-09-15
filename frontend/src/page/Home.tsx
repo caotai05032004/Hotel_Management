@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import Hero from '../components/home/Hero';
 import SearchBar from '../components/home/SearchBar';
 import Stats from '../components/home/Stats';
@@ -16,7 +17,6 @@ export default function Home() {
   const [rooms, setRooms] = useState<HangPhongResponse[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -27,12 +27,11 @@ export default function Home() {
         if (!alive) return;
         setRooms(page.data ?? []);
         setTotal(page.total ?? null);
-        setError(null);
       })
       .catch((err: unknown) => {
         if (!alive) return;
         const code = err instanceof ApiError ? err.code : 500;
-        setError(
+        toast.error(
           code === 401 || code === 403
             ? 'Danh mục hạng phòng hiện yêu cầu đăng nhập (endpoint POST /api/hang-phong/filter chưa được permitAll ở backend).'
             : err instanceof ApiError
@@ -54,7 +53,7 @@ export default function Home() {
       <Hero />
       <SearchBar />
       <Stats totalRoomTypes={total} />
-      <RoomsSection rooms={rooms} loading={loading} error={error} />
+      <RoomsSection rooms={rooms} loading={loading} />
       <ToursSection />
       <DiningSection />
       <FeaturesSection />

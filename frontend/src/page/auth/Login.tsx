@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '../../context/useAuth';
 import { getErrorMessage, getFieldErrors } from '../../services/http';
 import Button from '../../components/ui/Button';
 import { Input } from '../../components/ui/Field';
-import { Alert } from '../../components/ui/Feedback';
 import AuthShell from '../../components/layout/AuthShell';
 import type { LoginRequest } from '../../types';
+import { Eye, EyeOff } from 'lucide-react';
+import { RESORT_NAME } from '@/constants/system.constant';
 
 const STAFF = ['RECEPTIONIST', 'MANAGER', 'ADMIN'];
 
@@ -16,10 +18,15 @@ export default function Login() {
   const location = useLocation();
   const expired = new URLSearchParams(location.search).get('expired') === '1';
 
-  const [values, setValues] = useState<LoginRequest>({ email: '', password: '' });
+  const [values, setValues] = useState<LoginRequest>({ email: '', password: '123456' });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (expired) toast.warning('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onChange = (key: keyof LoginRequest) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setValues((v) => ({ ...v, [key]: e.target.value }));
@@ -28,7 +35,6 @@ export default function Login() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     const next: Record<string, string> = {};
     if (!values.email.trim()) next.email = 'Vui lòng nhập email';
@@ -47,16 +53,20 @@ export default function Login() {
     } catch (err) {
       const fieldErrors = getFieldErrors(err);
       if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
-      else setError(getErrorMessage(err));
+      else toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
+  const onShowPassword = () => {
+    setShowPassword((s) => !s);
+  }
+
   return (
     <AuthShell
       title="Đăng nhập"
-      subtitle="Chào mừng trở lại PhucNguyen Resort"
+      subtitle={`Chào mừng trở lại ${RESORT_NAME}`}
       footer={
         <>
           Chưa có tài khoản?{' '}
@@ -66,19 +76,6 @@ export default function Login() {
         </>
       }
     >
-      {expired && (
-        <div className="mb-5">
-          <Alert tone="warning">Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.</Alert>
-        </div>
-      )}
-      {error && (
-        <div className="mb-5">
-          <Alert tone="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </div>
-      )}
-
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Input
           label="Email"
@@ -90,16 +87,21 @@ export default function Login() {
           error={errors.email}
           required
         />
-        <Input
-          label="Mật khẩu"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          value={values.password}
-          onChange={onChange('password')}
-          error={errors.password}
-          required
-        />
+        <div className='relative'>
+          <Input
+            label="Mật khẩu"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={values.password}
+            onChange={onChange('password')}
+            error={errors.password}
+            required
+          />
+          <button type="button" onClick={onShowPassword} className='absolute right-3 top-1/2'>
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
         <Button type="submit" size="lg" className="w-full" loading={loading}>
           Đăng nhập
         </Button>

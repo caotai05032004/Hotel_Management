@@ -3,8 +3,8 @@ import Button from '../../components/ui/Button';
 import Badge, { HOUSEKEEPING_LABEL, OCCUPANCY_LABEL, SERVICE_LABEL } from '../../components/ui/Badge';
 import Pagination from '../../components/ui/Pagination';
 import Modal from '../../components/ui/Modal';
-import { Alert, EmptyState, Loading } from '../../components/ui/Feedback';
-import { useToast } from '../../components/ui/Toast';
+import { EmptyState, Loading } from '../../components/ui/Feedback';
+import { toast } from 'sonner';
 import PhongFormModal from './components/PhongFormModal';
 import PhongStatusModal from './components/PhongStatusModal';
 import { phongService } from '../../services/phongService';
@@ -20,13 +20,11 @@ const PAGE_SIZE = 10;
 export default function PhongPage() {
   const { hasRole } = useAuth();
   const canEdit = hasRole('MANAGER', 'ADMIN');
-  const toast = useToast();
 
   const [rows, setRows] = useState<PhongResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const [hangPhongOptions, setHangPhongOptions] = useState<HangPhongResponse[]>([]);
 
@@ -53,7 +51,6 @@ export default function PhongPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const filters: FilterCriteria[] = [];
       if (appliedRoomNumber)
@@ -79,7 +76,7 @@ export default function PhongPage() {
       setRows(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
       setRows([]);
       setTotal(0);
     } finally {
@@ -113,7 +110,6 @@ export default function PhongPage() {
 
   return (
     <div className="space-y-6">
-      {toast.view}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -206,7 +202,7 @@ export default function PhongPage() {
           </select>
         </FilterField>
 
-        <FilterField label="Khai thác">
+        <FilterField label="Trạng thái vận hành">
           <select
             value={service}
             onChange={(e) => {
@@ -231,8 +227,6 @@ export default function PhongPage() {
         </div>
       </form>
 
-      {error && <Alert tone="error">{error}</Alert>}
-
       {loading ? (
         <Loading />
       ) : rows.length === 0 ? (
@@ -248,7 +242,7 @@ export default function PhongPage() {
                   <th className="px-4 py-3 font-bold">Tầng</th>
                   <th className="px-4 py-3 font-bold">Lưu trú</th>
                   <th className="px-4 py-3 font-bold">Vệ sinh</th>
-                  <th className="px-4 py-3 font-bold">Khai thác</th>
+                  <th className="px-4 py-3 font-bold">Vận hành</th>
                   <th className="px-4 py-3 font-bold">Cập nhật</th>
                   <th className="px-4 py-3 text-right font-bold">Thao tác</th>
                 </tr>
@@ -258,7 +252,11 @@ export default function PhongPage() {
                   <tr key={row.id} className="transition hover:bg-cream-50">
                     <td className="px-4 py-3">
                       <p className="font-black text-navy-900">{row.roomNumber}</p>
-                      {row.note && <p className="truncate text-xs text-ink-400">{row.note}</p>}
+                      {row.note && (
+                        <p className="max-w-40 truncate text-xs text-ink-400" title={row.note}>
+                          {row.note}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-ink-600">
                       <p className="font-semibold text-navy-900">{row.hangPhongCode}</p>

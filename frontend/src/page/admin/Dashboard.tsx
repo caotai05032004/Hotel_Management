@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { hangPhongService } from '../../services/hangPhongService';
 import { phongService } from '../../services/phongService';
 import { getErrorMessage } from '../../services/http';
-import { Alert, Loading } from '../../components/ui/Feedback';
+import { Loading } from '../../components/ui/Feedback';
 import Badge, { HOUSEKEEPING_LABEL, OCCUPANCY_LABEL, SERVICE_LABEL } from '../../components/ui/Badge';
 import { formatNumber, formatVnd } from '../../lib/format';
 import { useAuth } from '../../context/useAuth';
@@ -25,7 +26,6 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -54,7 +54,7 @@ export default function Dashboard() {
           recentPhong: ph.slice(0, 6),
         });
       } catch (err) {
-        if (alive) setError(getErrorMessage(err));
+        if (alive) toast.error(getErrorMessage(err));
       } finally {
         if (alive) setLoading(false);
       }
@@ -74,15 +74,13 @@ export default function Dashboard() {
         <p className="mt-1 text-sm text-ink-400">Tổng quan tình trạng phòng và danh mục hạng phòng</p>
       </div>
 
-      {error && <Alert tone="error">{error}</Alert>}
-
       {data && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Hạng phòng" value={formatNumber(data.totalHangPhong)} hint={`${data.activeHangPhong} đang kinh doanh`} icon="🏷️" />
             <StatCard label="Phòng vật lý" value={formatNumber(data.totalPhong)} hint={`${data.vacant} trống · ${data.occupied} đang ở`} icon="🛏️" />
             <StatCard label="Chưa dọn" value={formatNumber(data.dirty)} hint="Cần buồng phòng xử lý" icon="🧹" tone="amber" />
-            <StatCard label="Ngừng khai thác" value={formatNumber(data.outOfOrder)} hint="Hỏng hóc / bảo trì" icon="🚧" tone="red" />
+            <StatCard label="Ngừng hoạt động" value={formatNumber(data.outOfOrder)} hint="Hỏng hóc / bảo trì" icon="🚧" tone="red" />
           </div>
 
           <div className="grid gap-6 xl:grid-cols-2">

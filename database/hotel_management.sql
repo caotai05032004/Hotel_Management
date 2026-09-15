@@ -248,6 +248,7 @@ CREATE TABLE dat_phong (
                            contact_name        VARCHAR(150)  NOT NULL,   -- snapshot, không đổi khi hồ sơ bị ẩn danh
                            contact_email       VARCHAR(190)      NULL,
                            contact_phone       VARCHAR(20)       NULL,
+                           id_number_raw       VARCHAR(50)       NULL,
                            check_in_date       DATE          NOT NULL,
                            check_out_date      DATE          NOT NULL,
                            num_adults          TINYINT       NOT NULL DEFAULT 1,
