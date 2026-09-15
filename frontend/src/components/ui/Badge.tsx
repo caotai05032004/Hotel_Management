@@ -48,7 +48,7 @@ export const HOUSEKEEPING_LABEL: Record<HousekeepingStatus, { text: string; tone
 };
 
 export const SERVICE_LABEL: Record<ServiceStatus, { text: string; tone: Tone }> = {
-  IN_SERVICE: { text: 'Đang khai thác', tone: 'green' },
+  IN_SERVICE: { text: 'Đang hoạt động', tone: 'green' },
   OUT_OF_ORDER: { text: 'Hỏng hóc', tone: 'red' },
-  OUT_OF_SERVICE: { text: 'Ngừng khai thác', tone: 'slate' },
+  OUT_OF_SERVICE: { text: 'Ngừng hoạt động', tone: 'slate' },
 };

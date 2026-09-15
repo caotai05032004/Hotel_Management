@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Logo from './Logo';
+import { RESORT_NAME } from "@/constants/system.constant";
 
 /** Bố cục 2 cột dùng chung cho trang Đăng nhập / Đăng ký. */
 export default function AuthShell({
@@ -27,7 +28,7 @@ export default function AuthShell({
             <span className="grid h-10 w-10 place-items-center rounded-full bg-gold-500 text-lg font-black text-navy-900">
               P
             </span>
-            <span className="text-base font-extrabold text-white">PhucNguyen Resort</span>
+            <span className="text-base font-extrabold text-white">{RESORT_NAME}</span>
           </div>
           <div>
             <p className="text-xs font-bold tracking-[0.35em] text-gold-400">

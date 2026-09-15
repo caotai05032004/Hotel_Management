@@ -2,8 +2,8 @@ import { useState } from 'react';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Field';
-import { Alert, EmptyState, Spinner } from '../../components/ui/Feedback';
-import { useToast } from '../../components/ui/Toast';
+import { EmptyState, Spinner } from '../../components/ui/Feedback';
+import { toast } from 'sonner';
 import { nguoiDungService } from '../../services/nguoiDungService';
 import { getErrorMessage, getFieldErrors } from '../../services/http';
 import { formatDateTime } from '../../lib/format';
@@ -16,7 +16,6 @@ import type { NguoiDungResponse } from '../../types';
  * Chưa có API liệt kê người dùng nên trang này là màn hình tra cứu theo ID.
  */
 export default function TaiKhoanPage() {
-  const toast = useToast();
 
   const [userId, setUserId] = useState('');
   const [user, setUser] = useState<NguoiDungResponse | null>(null);
@@ -39,6 +38,7 @@ export default function TaiKhoanPage() {
     } catch (err) {
       setUser(null);
       setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     } finally {
       setSearching(false);
     }
@@ -80,7 +80,6 @@ export default function TaiKhoanPage() {
 
   return (
     <div className="space-y-6">
-      {toast.view}
 
       <div>
         <h1 className="text-2xl font-black text-navy-900">Tài khoản</h1>
@@ -108,8 +107,6 @@ export default function TaiKhoanPage() {
           Tra cứu
         </Button>
       </form>
-
-      {error && <Alert tone="error">{error}</Alert>}
 
       {searching && (
         <div className="flex justify-center py-10">

@@ -1,3 +1,4 @@
+import { RESORT_NAME } from '@/constants/system.constant';
 import { Link } from 'react-router-dom';
 
 const COLUMNS = [
@@ -22,9 +23,11 @@ const COLUMNS = [
   {
     title: 'Pháp lý',
     links: [
-      { label: 'Decree 356/2025', to: '/#about' },
+      { label: 'Nghị định 356/2025', to: '/#about' },
+      { label: 'Luật Cư Trú 2025', to: '/#about' },
+      { label: 'Luật Du Lịch 2017', to: '/#about' },
       { label: 'Điều khoản dịch vụ', to: '/#about' },
-      { label: 'Bảo mật dữ liệu', to: '/#about' },
+      // { label: 'Bảo mật dữ liệu', to: '/#about' },
       { label: 'Cookie Policy', to: '/#about' },
     ],
   },
@@ -39,7 +42,7 @@ export default function Footer() {
             <span className="grid h-10 w-10 place-items-center rounded-full bg-gold-500 text-lg font-black text-navy-900">
               P
             </span>
-            <span className="text-base font-extrabold text-white">PhucNguyen Resort</span>
+            <span className="text-base font-extrabold text-white">RESORT_NAME</span>
           </div>
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-cream-200/60">
             Hệ thống quản lý nghỉ dưỡng tích hợp. Dự án SWP391-HOS-02 — FPT University.
@@ -64,7 +67,7 @@ export default function Footer() {
 
       <div className="border-t border-white/10">
         <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-cream-200/50 sm:flex-row">
-          <p>© 2026 PhucNguyen Resort &amp; Tour Hub. All rights reserved.</p>
+          <p>© 2026 {RESORT_NAME} &amp; Tour Hub. All rights reserved.</p>
           <p>Thanh toán: 💳 VNPay · Stripe · Tiền mặt</p>
         </div>
       </div>

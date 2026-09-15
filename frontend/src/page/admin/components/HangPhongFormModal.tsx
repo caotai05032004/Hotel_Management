@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import { Input, Textarea } from '../../../components/ui/Field';
-import { Alert } from '../../../components/ui/Feedback';
 import { hangPhongService } from '../../../services/hangPhongService';
 import { getErrorMessage, getFieldErrors } from '../../../services/http';
 import { parseAmenities, stringifyAmenities } from '../../../lib/format';
@@ -43,13 +43,11 @@ const EMPTY: FormState = {
 export default function HangPhongFormModal({ open, editing, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setErrors({});
-    setError(null);
     setForm(
       editing
         ? {
@@ -91,7 +89,6 @@ export default function HangPhongFormModal({ open, editing, onClose, onSaved }: 
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    setError(null);
     const next = validate();
     if (Object.keys(next).length) {
       setErrors(next);
@@ -125,7 +122,7 @@ export default function HangPhongFormModal({ open, editing, onClose, onSaved }: 
     } catch (err) {
       const fieldErrors = getFieldErrors(err);
       if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
-      else setError(getErrorMessage(err));
+      else toast.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -148,14 +145,6 @@ export default function HangPhongFormModal({ open, editing, onClose, onSaved }: 
         </>
       }
     >
-      {error && (
-        <div className="mb-4">
-          <Alert tone="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </div>
-      )}
-
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
         <Input label="Mã hạng phòng" placeholder="DLX" value={form.code} onChange={set('code')} error={errors.code} required />
         <Input label="Tên hạng phòng" placeholder="Deluxe Ocean View" value={form.name} onChange={set('name')} error={errors.name} required />

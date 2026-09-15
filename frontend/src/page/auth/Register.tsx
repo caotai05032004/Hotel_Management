@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '../../context/useAuth';
 import { getErrorMessage, getFieldErrors } from '../../services/http';
 import Button from '../../components/ui/Button';
 import { Input } from '../../components/ui/Field';
-import { Alert } from '../../components/ui/Feedback';
 import AuthShell from '../../components/layout/AuthShell';
 
 interface FormValues {
@@ -23,7 +23,6 @@ export default function Register() {
 
   const [values, setValues] = useState<FormValues>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const onChange = (key: keyof FormValues) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,7 +47,6 @@ export default function Register() {
 
   const onSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    setError(null);
 
     const next = validate();
     if (Object.keys(next).length) {
@@ -68,7 +66,7 @@ export default function Register() {
     } catch (err) {
       const fieldErrors = getFieldErrors(err);
       if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
-      else setError(getErrorMessage(err));
+      else toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -87,14 +85,6 @@ export default function Register() {
         </>
       }
     >
-      {error && (
-        <div className="mb-5">
-          <Alert tone="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </div>
-      )}
-
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Input
           label="Họ và tên"

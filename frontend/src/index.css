@@ -32,6 +32,14 @@
   --shadow-soft: 0 2px 10px -3px rgb(13 27 42 / 0.12);
 }
 
+/* Token nền tối thiểu cho component shadcn (sonner Toaster) khớp bảng màu navy/gold/cream sẵn có */
+:root {
+  --popover: var(--color-cream-50);
+  --popover-foreground: var(--color-ink-900);
+  --border: var(--color-cream-300);
+  --radius: 0.75rem;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

@@ -1,17 +1,16 @@
 import { Link } from 'react-router-dom';
 import SectionHeading from './SectionHeading';
 import RoomCard from '../room/RoomCard';
-import { Loading, Alert } from '../ui/Feedback';
+import { Loading } from '../ui/Feedback';
 import type { HangPhongResponse } from '../../types';
 
 interface Props {
   rooms: HangPhongResponse[];
   loading: boolean;
-  error: string | null;
 }
 
 /** Section "Phòng & Villa Cao Cấp" — dữ liệu lấy từ POST /api/hang-phong/filter */
-export default function RoomsSection({ rooms, loading, error }: Props) {
+export default function RoomsSection({ rooms, loading }: Props) {
   return (
     <section id="rooms" className="container-page py-20">
       <SectionHeading
@@ -23,13 +22,7 @@ export default function RoomsSection({ rooms, loading, error }: Props) {
       <div className="mt-12">
         {loading && <Loading label="Đang tải hạng phòng…" />}
 
-        {!loading && error && (
-          <div className="mx-auto max-w-2xl">
-            <Alert tone="warning">{error}</Alert>
-          </div>
-        )}
-
-        {!loading && !error && rooms.length === 0 && (
+        {!loading && rooms.length === 0 && (
           <p className="text-center text-sm text-ink-400">
             Chưa có hạng phòng nào được đăng. Hãy thêm hạng phòng trong khu quản trị.
           </p>

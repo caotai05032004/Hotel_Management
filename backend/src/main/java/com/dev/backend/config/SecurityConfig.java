@@ -66,9 +66,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .toList());
+        if (allowedOrigins != null && allowedOrigins.contains("*")) {
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .toList());
+        }
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
@@ -90,11 +94,19 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        // Khach vang lai xem duoc catalog phong / tour / thuc don
+                        // Khach vang lai xem duoc catalog phong / tour / thuc don (ca GET va POST /filter)
+                        .requestMatchers(
+                                "/api/hang-phong/filter",
+                                "/api/tours/filter",
+                                "/api/mon-an/filter").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/hang-phong/**",
                                 "/api/tours/**",
                                 "/api/mon-an/**").permitAll()
+                        // Khach vang lai (khong dang nhap) van dat phong va thanh toan coc duoc
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/dat-phong",
+                                "/api/dat-phong/*/thanh-toan-coc").permitAll()
                         .anyRequest().authenticated()
                 );
 

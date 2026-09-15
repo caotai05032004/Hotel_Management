@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import RoomCard from '../components/room/RoomCard';
 import Pagination from '../components/ui/Pagination';
-import { Alert, EmptyState, Loading } from '../components/ui/Feedback';
+import { EmptyState, Loading } from '../components/ui/Feedback';
 import Button from '../components/ui/Button';
 import { hangPhongService } from '../services/hangPhongService';
 import { getErrorMessage } from '../services/http';
 import type { FilterCriteria, HangPhongResponse, SortDirection } from '../types';
+import { RESORT_NAME } from '@/constants/system.constant';
 
 const PAGE_SIZE = 9;
 
@@ -21,11 +23,9 @@ export default function Rooms() {
   const [rooms, setRooms] = useState<HangPhongResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const filters: FilterCriteria[] = [
         { fieldName: 'isActive', operation: 'EQUALS', value: true, logicType: 'AND' },
@@ -52,7 +52,7 @@ export default function Rooms() {
       setRooms(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
       setRooms([]);
       setTotal(0);
     } finally {
@@ -91,7 +91,7 @@ export default function Rooms() {
           <p className="mx-auto mt-4 max-w-xl text-cream-200/70">
             {guests > 0
               ? `Hạng phòng phù hợp cho ${guests} khách`
-              : 'Toàn bộ hạng phòng đang kinh doanh tại PhucNguyen Resort'}
+              : `Toàn bộ hạng phòng đang kinh doanh tại ${RESORT_NAME}`}
           </p>
           {checkIn && checkOut && (
             <p className="mt-2 text-sm font-semibold text-gold-400">
@@ -141,9 +141,7 @@ export default function Rooms() {
 
         {loading && <Loading label="Đang tải hạng phòng…" />}
 
-        {!loading && error && <Alert tone="error">{error}</Alert>}
-
-        {!loading && !error && rooms.length === 0 && (
+        {!loading && rooms.length === 0 && (
           <EmptyState
             title="Không tìm thấy hạng phòng phù hợp"
             description="Thử bỏ bớt điều kiện lọc hoặc chọn số khách ít hơn."

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Pagination from '../../components/ui/Pagination';
-import { Alert, EmptyState, Loading } from '../../components/ui/Feedback';
-import { useToast } from '../../components/ui/Toast';
+import { EmptyState, Loading } from '../../components/ui/Feedback';
+import { toast } from 'sonner';
 import HangPhongFormModal from './components/HangPhongFormModal';
 import HangPhongImageModal from './components/HangPhongImageModal';
 import { hangPhongService } from '../../services/hangPhongService';
@@ -17,7 +17,6 @@ const PAGE_SIZE = 10;
 export default function HangPhongPage() {
   const { hasRole } = useAuth();
   const canEdit = hasRole('MANAGER', 'ADMIN');
-  const toast = useToast();
 
   const [rows, setRows] = useState<HangPhongResponse[]>([]);
   const [total, setTotal] = useState(0);
@@ -27,7 +26,6 @@ export default function HangPhongPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<HangPhongResponse | null>(null);
@@ -35,7 +33,6 @@ export default function HangPhongPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const filters: FilterCriteria[] = [];
       if (appliedKeyword) {
@@ -58,7 +55,7 @@ export default function HangPhongPage() {
       setRows(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
       setRows([]);
       setTotal(0);
     } finally {
@@ -87,7 +84,6 @@ export default function HangPhongPage() {
 
   return (
     <div className="space-y-6">
-      {toast.view}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -149,8 +145,6 @@ export default function HangPhongPage() {
           Lọc
         </Button>
       </form>
-
-      {error && <Alert tone="error">{error}</Alert>}
 
       {loading ? (
         <Loading />

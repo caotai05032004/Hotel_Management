@@ -232,6 +232,10 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         String firstPart = fieldName.split("\\.")[0];
 
         if (!validFields.contains(firstPart)) {
+            // Hỗ trợ trường hợp FE gửi "hangPhongId" nhưng trong Entity tên field là "hangPhong"
+            if (firstPart.endsWith("Id") && validFields.contains(firstPart.substring(0, firstPart.length() - 2))) {
+                return;
+            }
             throw new InvalidFieldException(
                     String.format("Field '%s' không tồn tại hoặc không có annotation hợp lệ trong entity %s. " +
                                     "Các field hợp lệ: %s",
@@ -300,10 +304,27 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
 
     protected Path<?> getFieldPath(Root<T> root, String fieldName) {
         String[] parts = fieldName.split("\\.");
-        Path<?> path = root.get(parts[0]);
+        Path<?> path;
+        String first = parts[0];
+
+        try {
+            path = root.get(first);
+        } catch (IllegalArgumentException e) {
+            if (first.endsWith("Id")) {
+                String relName = first.substring(0, first.length() - 2);
+                path = root.get(relName).get("id");
+            } else {
+                throw e;
+            }
+        }
 
         for (int i = 1; i < parts.length; i++) {
             path = path.get(parts[i]);
+        }
+
+        // Nếu path trỏ tới một Entity Class (ví dụ HangPhong.class) mà không phải primitive/String/Enum
+        if (path.getJavaType().isAnnotationPresent(jakarta.persistence.Entity.class)) {
+            path = path.get("id");
         }
 
         return path;

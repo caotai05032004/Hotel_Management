@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import Modal from '../../../components/ui/Modal';
 import Button from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Field';
-import { Alert, Loading } from '../../../components/ui/Feedback';
+import { Loading } from '../../../components/ui/Feedback';
 import { hangPhongService } from '../../../services/hangPhongService';
 import { getErrorMessage } from '../../../services/http';
 import type { AnhHangPhongResponse, HangPhongResponse } from '../../../types';
@@ -18,19 +19,17 @@ interface Props {
 export default function HangPhongImageModal({ open, hangPhong, onClose, onChanged }: Props) {
   const [images, setImages] = useState<AnhHangPhongResponse[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ imageUrl: '', caption: '', sortOrder: '' });
 
   useEffect(() => {
     if (!open || !hangPhong) return;
-    setError(null);
     setForm({ imageUrl: '', caption: '', sortOrder: '' });
     setLoading(true);
     hangPhongService
       .getById(hangPhong.id)
       .then((data) => setImages(data.images ?? []))
-      .catch((err) => setError(getErrorMessage(err)))
+      .catch((err) => toast.error(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [open, hangPhong]);
 
@@ -44,11 +43,10 @@ export default function HangPhongImageModal({ open, hangPhong, onClose, onChange
     e.preventDefault();
     if (!hangPhong) return;
     if (!form.imageUrl.trim()) {
-      setError('URL ảnh không được để trống');
+      toast.error('URL ảnh không được để trống');
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       await hangPhongService.addImage(hangPhong.id, {
         imageUrl: form.imageUrl.trim(),
@@ -59,7 +57,7 @@ export default function HangPhongImageModal({ open, hangPhong, onClose, onChange
       await reload();
       onChanged('Đã thêm ảnh');
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -67,13 +65,12 @@ export default function HangPhongImageModal({ open, hangPhong, onClose, onChange
 
   const remove = async (anhId: string) => {
     if (!hangPhong) return;
-    setError(null);
     try {
       await hangPhongService.removeImage(hangPhong.id, anhId);
       await reload();
       onChanged('Đã xoá ảnh');
     } catch (err) {
-      setError(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -90,14 +87,6 @@ export default function HangPhongImageModal({ open, hangPhong, onClose, onChange
         </Button>
       }
     >
-      {error && (
-        <div className="mb-4">
-          <Alert tone="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </div>
-      )}
-
       <form onSubmit={add} className="grid gap-3 rounded-xl bg-cream-50 p-4 ring-1 ring-cream-200 sm:grid-cols-[2fr_1fr_auto]">
         <Input
           label="URL ảnh"

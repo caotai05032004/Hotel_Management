@@ -1,24 +1,25 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { Alert, Loading } from '../components/ui/Feedback';
+import { Loading } from '../components/ui/Feedback';
 import { hangPhongService } from '../services/hangPhongService';
 import { getErrorMessage } from '../services/http';
 import { formatVnd, parseAmenities } from '../lib/format';
-import { useAuth } from '../context/useAuth';
+import BookingModal from '../components/booking/BookingModal';
 import type { HangPhongResponse } from '../types';
 
 const FALLBACK = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1400&q=75';
 
 export default function RoomDetail() {
   const { id = '' } = useParams();
-  const { isAuthenticated } = useAuth();
 
   const [room, setRoom] = useState<HangPhongResponse | null>(null);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -26,7 +27,7 @@ export default function RoomDetail() {
     hangPhongService
       .getById(id)
       .then((data) => alive && setRoom(data))
-      .catch((err) => alive && setError(getErrorMessage(err)))
+      .catch((err) => alive && toast.error(getErrorMessage(err)))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -35,10 +36,10 @@ export default function RoomDetail() {
 
   if (loading) return <Loading label="Đang tải thông tin hạng phòng…" />;
 
-  if (error || !room) {
+  if (!room) {
     return (
       <div className="container-page py-20">
-        <Alert tone="error">{error ?? 'Không tìm thấy hạng phòng'}</Alert>
+        <p className="text-sm font-semibold text-red-700">Không tìm thấy hạng phòng</p>
         <Link to="/rooms" className="mt-6 inline-block text-sm font-bold text-gold-700">
           ← Quay lại danh sách phòng
         </Link>
@@ -51,6 +52,11 @@ export default function RoomDetail() {
 
   return (
     <div className="container-page py-10">
+      <BookingModal
+        isOpen={isBookingOpen}
+        onClose={() => setIsBookingOpen(false)}
+        hangPhong={room}
+      />
       <nav className="mb-6 text-sm text-ink-400">
         <Link to="/" className="hover:text-navy-900">
           Trang chủ
@@ -70,7 +76,7 @@ export default function RoomDetail() {
             <img
               src={images[active]}
               alt={room.name}
-              className="aspect-[16/10] w-full object-cover"
+              className="aspect-16/10 w-full object-cover"
             />
           </div>
 
@@ -143,22 +149,13 @@ export default function RoomDetail() {
             </dl>
 
             <div className="mt-6">
-              {isAuthenticated ? (
-                <Button
-                  className="w-full"
-                  size="lg"
-                  title="Chức năng đặt phòng sẽ mở khi backend có DatPhongController"
-                  disabled
-                >
-                  Đặt phòng (sắp có)
-                </Button>
-              ) : (
-                <Link to="/login" className="block">
-                  <Button className="w-full" size="lg">
-                    Đăng nhập để đặt phòng
-                  </Button>
-                </Link>
-              )}
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => setIsBookingOpen(true)}
+              >
+                Đặt phòng ngay
+              </Button>
               <p className="mt-3 text-center text-xs text-ink-400">
                 Miễn phí hủy trong 48h theo chính sách của resort
               </p>
