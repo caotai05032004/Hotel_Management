@@ -124,12 +124,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Danh sách origin được phép, tách bằng dấu phẩy trong application.yml
-        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .toList());
-
-        // Các HTTP method FE được dùng
+        // Danh sách origin được phép, tách bằng dấu phẩy trong application.yml.
+        // Nếu cấu hình là "*" thì BẮT BUỘC dùng allowedOriginPatterns: Spring cấm
+        // allowedOrigins = "*" đi kèm allowCredentials = true (sẽ ném IllegalArgumentException).
         if (allowedOrigins != null && allowedOrigins.contains("*")) {
             configuration.setAllowedOriginPatterns(List.of("*"));
         } else {
@@ -137,6 +134,8 @@ public class SecurityConfig {
                     .map(String::trim)
                     .toList());
         }
+
+        // Các HTTP method FE được dùng
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         // Cho phép mọi header (quan trọng nhất là Authorization và Content-Type)
